@@ -1,0 +1,11 @@
+node_modules/
+
+*.class
+
+*.jar
+
+temp_model.als
+
+last_execution_results.txt
+
+.DS_STORE
