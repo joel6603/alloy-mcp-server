@@ -34,7 +34,6 @@ public class RunAlloy {
 
             A4Options options = new A4Options();
 
-            // Set up a file writer to archive EVERY counterexample locally
             try (PrintWriter fileWriter = new PrintWriter(new FileWriter("all_counterexamples.txt"))) {
                 
                 for (Command command : world.getAllCommands()) {
@@ -59,23 +58,21 @@ public class RunAlloy {
                     fileWriter.println(msg);
 
                     int instanceCount = 0;
-                    // We remove the strict cap of 5 for the file, but keep a safety ceiling of 200 
-                    // just in case the state space is infinitely large.
                     int maxFileInstances = 200; 
 
                     while (ans.satisfiable() && instanceCount < maxFileInstances) {
                         instanceCount++;
                         
-                        // 1. ALWAYS write the full structural graph data to the local file
+                        // 1. ALWAYS write the native graph data (static or temporal) to the local file
                         fileWriter.println("\n=========================================");
                         fileWriter.println("--- Solution #" + instanceCount + " ---");
                         fileWriter.println("=========================================");
                         fileWriter.println(ans.toString());
                         
-                        // 2. ONLY print the first 5 to the console to save Claude's token limits
+                        // 2. ONLY print the first 5 to the console to save LLM tokens
                         if (instanceCount <= 5) {
                             System.out.println("\n=========================================");
-                            System.out.println("--- Solution #" + instanceCount + " (Sent to Claude) ---");
+                            System.out.println("--- Solution #" + instanceCount + " (Sent to LLM) ---");
                             System.out.println("=========================================");
                             System.out.println(ans.toString());
                         }
@@ -85,7 +82,7 @@ public class RunAlloy {
                     
                     System.out.println("\n[Note: " + instanceCount + " total solutions found. All archived in 'all_counterexamples.txt'.]");
                     if (instanceCount > 5) {
-                        System.out.println("[Claude displayed the first 5 to protect context window limits.]");
+                        System.out.println("[LLM displayed the first 5 to protect context window limits.]");
                     }
                     System.out.println("-----------------------------------------\n");
                     
