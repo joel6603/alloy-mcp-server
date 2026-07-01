@@ -9,3 +9,7 @@ temp_model.als
 last_execution_results.txt
 
 .DS_STORE
+
+all_counterexamples.txt
+
+prompt1.txt
