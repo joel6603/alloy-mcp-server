@@ -38,7 +38,6 @@ server.tool(
 );
 
 // --- TOOL 2: TARGETED EXECUTOR ---
-// I changed the name back to run_alloy_model so Claude doesn't get confused!
 server.tool(
   "run_alloy_model",
   "Executes the SAT solver on the model. Returns instances or counterexamples.",
@@ -74,6 +73,53 @@ server.tool(
   }
 );
 
+// --- TOOL 3: ARCHIVE READER ---
+server.tool(
+  "read_archived_counterexamples",
+  "Reads a specific chunk of counterexamples from the local all_counterexamples.txt file without overloading the context window.",
+  {
+    start_instance: z.number().describe("The solution number to start reading from (e.g., 6)."),
+    count: z.number().describe("How many sequential solutions to return (maximum 5 is recommended).")
+  },
+  async ({ start_instance, count }) => {
+    const archivePath = path.join(__dirname, "all_counterexamples.txt");
+    try {
+      const fileContent = await fs.readFile(archivePath, "utf-8");
+      const solutions = [];
+
+      for (let i = start_instance; i < start_instance + count; i++) {
+        const currentMarker = `--- Solution #${i} ---`;
+        const nextMarker = `--- Solution #${i + 1} ---`;
+        const endOfArchiveMarker = `Total solutions archived:`;
+
+        const startIndexPos = fileContent.indexOf(currentMarker);
+        
+        if (startIndexPos === -1) {
+          if (i === start_instance) {
+            return { content: [{ type: "text", text: `Solution #${i} not found. You have reached the end of the archive.` }] };
+          }
+          break; 
+        }
+
+        let endIndexPos = fileContent.indexOf(nextMarker, startIndexPos);
+        if (endIndexPos === -1) endIndexPos = fileContent.indexOf(endOfArchiveMarker, startIndexPos);
+        if (endIndexPos === -1) endIndexPos = fileContent.length;
+
+        const extract = fileContent.substring(startIndexPos, endIndexPos).trim();
+        solutions.push(extract);
+      }
+
+      return {
+        content: [{
+          type: "text",
+          text: solutions.join('\n\n=========================================\n\n')
+        }]
+      };
+    } catch (error) {
+      return { content: [{ type: "text", text: `Failed to read archive: ${error.message}` }] };
+    }
+  }
+);
 
 
 async function start() {

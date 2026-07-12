@@ -63,7 +63,7 @@ public class RunAlloy {
                     while (ans.satisfiable() && instanceCount < maxFileInstances) {
                         instanceCount++;
                         
-                        // 1. ALWAYS write the native graph data (static or temporal) to the local file
+                        // 1. ALWAYS write the native graph data to the local file
                         fileWriter.println("\n=========================================");
                         fileWriter.println("--- Solution #" + instanceCount + " ---");
                         fileWriter.println("=========================================");
