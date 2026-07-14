@@ -1,0 +1,18 @@
+Here is my current Alloy model. I want you to act as an expert in formal verification and help me debug it using my local MCP server tools.
+
+Please follow this exact order of operations:
+
+1. **Syntax First:** Use the `check_alloy_syntax` tool to parse the model. Do not attempt to fix logic until the syntax passes.
+2. **Execution:** If the syntax is valid, use the `run_alloy_model` tool to execute my target command (assume "all" unless I specify otherwise below).
+
+**CRITICAL NOTE ON TIMEOUTS:** The backend SAT solver is calculating and archiving every possible counterexample to my local hard drive (`all_counterexamples.txt`). For complex models, this can take time. If the tool returns a message saying **"⏳ The SAT solver is taking longer than 45 seconds,"** do not panic and do not try to run it again. This simply means the process successfully detached and is running in the background. Acknowledge that the background job has started, and wait for me to ask you to use the `read_archived_counterexamples` tool.
+
+**IF EXECUTION IS FAST:** If the tool completes quickly and successfully returns the first 5 counterexamples directly in the chat, review the provided solutions and give me:
+* A summary of the assertion failure.
+* A comparative breakdown of the 5 solutions you can see. Explain exactly how the failure states differ from each other structurally (or temporally).
+* An explanation of the root logical flaw in my code.
+* A concrete code recommendation to fix the issue.
+
+**Target Command:** [default = "all"]
+**Here is the code:**
+[]

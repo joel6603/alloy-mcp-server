@@ -56,17 +56,36 @@ server.tool(
     
     try {
       await fs.writeFile(tempFilePath, alloy_code);
-      const { stdout, stderr } = await execAsync(command, { cwd: __dirname });
       
-      let outputText = "";
-      if (stdout) outputText += `${stdout}\n`;
-      if (stderr) outputText += `--- Errors ---\n${stderr}\n`;
+      // 1. Create the Java execution task
+      const execTask = execAsync(command, { cwd: __dirname });
+      
+      // 2. Create a 45-second timeout timer (45000 ms)
+      const timeoutTask = new Promise((resolve) => {
+        setTimeout(() => resolve({ timeout: true }), 45000); 
+      });
 
-      await fs.writeFile(resultsFilePath, outputText);
-      return { content: [{ type: "text", text: outputText }] };
+      // 3. Race them! Whichever finishes first wins the output.
+      const result = await Promise.race([execTask, timeoutTask]);
+
+      if (result.timeout) {
+        // The 45-second timer won. Java is still safely running in the background.
+        const timeoutMsg = "⏳ The SAT solver is taking longer than 45 seconds. It is continuing to run safely in the background. Please inform the user that they can ask you to check the results using the `read_archived_counterexamples` tool whenever they are ready.";
+        await fs.writeFile(resultsFilePath, timeoutMsg);
+        return { content: [{ type: "text", text: timeoutMsg }] };
+      } else {
+        // Java won! The math was fast, and we have the results immediately.
+        const { stdout, stderr } = result;
+        let outputText = "";
+        if (stdout) outputText += `${stdout}\n`;
+        if (stderr) outputText += `--- Errors ---\n${stderr}\n`;
+
+        await fs.writeFile(resultsFilePath, outputText);
+        return { content: [{ type: "text", text: outputText }] };
+      }
       
     } catch (error) {
-      const errorText = `Execution failed.\nCommand: ${command}\nStdout: ${error.stdout}\nSystem Error: ${error.message}`;
+      const errorText = `Execution failed.\nCommand: ${command}\nStdout: ${error.stdout || ''}\nSystem Error: ${error.message}`;
       await fs.writeFile(resultsFilePath, errorText);
       return { content: [{ type: "text", text: errorText }] };
     }
