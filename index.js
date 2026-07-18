@@ -13,7 +13,7 @@ const execAsync = promisify(exec);
 
 const server = new McpServer({
   name: "alloy-mcp-server",
-  version: "2.0.1"
+  version: "2.1.0"
 });
 
 const CLASSPATH = `"org.alloytools.alloy.dist.jar;."`;
@@ -37,22 +37,23 @@ server.tool(
   }
 );
 
-// --- TOOL 2: TARGETED EXECUTOR ---
+// --- TOOL 2: TARGETED EXECUTOR (DYNAMIC LIMITS & HYBRID TIMEOUT) ---
 server.tool(
   "run_alloy_model",
-  "Executes the SAT solver on the model. Returns instances or counterexamples.",
+  "Executes the SAT solver. Returns results instantly if fast, or returns a background ticket if it takes longer than 45 seconds.",
   {
     alloy_code: z.string(),
-    // Changed from "optional" to "default" to prevent Claude from sending invalid JSON
-    command_name: z.string().default("all").describe("The specific run/check label to execute. Leave as 'all' to run everything.")
+    command_name: z.string().default("all").describe("The specific run/check label to execute. Leave as 'all' to run everything."),
+    max_archive: z.number().default(200).describe("Maximum total solutions to calculate and save to the archive file on disk."),
+    max_return: z.number().default(5).describe("Maximum solutions to return immediately in the chat window.")
   },
-  async ({ alloy_code, command_name }) => {
+  async ({ alloy_code, command_name, max_archive, max_return }) => {
     const tempFilePath = path.join(__dirname, "temp_model.als");
     const resultsFilePath = path.join(__dirname, "last_execution_results.txt");
     
-    // Safely handle the command name
+    // Safely handle the command name and dynamic limits
     const target = (command_name && command_name !== "all") ? `"${command_name}"` : "all";
-    const command = `java -cp ${CLASSPATH} RunAlloy "${tempFilePath}" --run ${target}`;
+    const command = `java -cp ${CLASSPATH} RunAlloy "${tempFilePath}" --run ${target} --max-archive ${max_archive} --max-return ${max_return}`;
     
     try {
       await fs.writeFile(tempFilePath, alloy_code);
@@ -70,7 +71,7 @@ server.tool(
 
       if (result.timeout) {
         // The 45-second timer won. Java is still safely running in the background.
-        const timeoutMsg = "⏳ The SAT solver is taking longer than 45 seconds. It is continuing to run safely in the background. Please inform the user that they can ask you to check the results using the `read_archived_counterexamples` tool whenever they are ready.";
+        const timeoutMsg = `⏳ The SAT solver is taking longer than 45 seconds. It is continuing to run safely in the background (Archiving up to ${max_archive} solutions). Please inform the user that they can ask you to check the results using the \`read_archived_counterexamples\` tool whenever they are ready.`;
         await fs.writeFile(resultsFilePath, timeoutMsg);
         return { content: [{ type: "text", text: timeoutMsg }] };
       } else {
@@ -139,7 +140,6 @@ server.tool(
     }
   }
 );
-
 
 async function start() {
   const transport = new StdioServerTransport();

@@ -13,26 +13,47 @@ import java.io.PrintWriter;
 
 public class RunAlloy {
     public static void main(String[] args) {
-        if (args.length < 2) {
-            System.err.println("Usage: java RunAlloy <filename> <--syntax-only | --run> [commandName]");
+        if (args.length == 0) {
+            System.err.println("Error: No file provided.");
             return;
         }
 
         String filename = args[0];
-        String mode = args[1];
-        String targetCommand = (args.length > 2) ? args[2] : "all";
+        boolean syntaxOnly = false;
+        String targetCommand = "all";
+        
+        // Dynamic limits with defaults
+        int maxArchive = 200;
+        int maxReturn = 5;
+
+        // Parse incoming command-line arguments from Node.js
+        for (int i = 1; i < args.length; i++) {
+            if (args[i].equals("--syntax-only")) {
+                syntaxOnly = true;
+            } else if (args[i].equals("--run") && i + 1 < args.length) {
+                targetCommand = args[++i];
+                if (targetCommand.startsWith("\"") && targetCommand.endsWith("\"")) {
+                    targetCommand = targetCommand.substring(1, targetCommand.length() - 1);
+                }
+            } else if (args[i].equals("--max-archive") && i + 1 < args.length) {
+                maxArchive = Integer.parseInt(args[++i]);
+            } else if (args[i].equals("--max-return") && i + 1 < args.length) {
+                maxReturn = Integer.parseInt(args[++i]);
+            }
+        }
 
         A4Reporter rep = new A4Reporter();
 
         try {
             Module world = CompUtil.parseEverything_fromFile(rep, null, filename);
 
-            if (mode.equals("--syntax-only")) {
+            if (syntaxOnly) {
                 System.out.println("Syntax check passed! No errors found.");
                 return;
             }
 
             A4Options options = new A4Options();
+            
 
             try (PrintWriter fileWriter = new PrintWriter(new FileWriter("all_counterexamples.txt"))) {
                 
@@ -58,19 +79,18 @@ public class RunAlloy {
                     fileWriter.println(msg);
 
                     int instanceCount = 0;
-                    int maxFileInstances = 200; 
 
-                    while (ans.satisfiable() && instanceCount < maxFileInstances) {
+                    while (ans.satisfiable() && instanceCount < maxArchive) {
                         instanceCount++;
                         
-                        // 1. ALWAYS write the native graph data to the local file
+                        // 1. ALWAYS write to the local file up to maxArchive
                         fileWriter.println("\n=========================================");
                         fileWriter.println("--- Solution #" + instanceCount + " ---");
                         fileWriter.println("=========================================");
                         fileWriter.println(ans.toString());
                         
-                        // 2. ONLY print the first 5 to the console to save LLM tokens
-                        if (instanceCount <= 5) {
+                        // 2. ONLY print to the console up to maxReturn
+                        if (instanceCount <= maxReturn) {
                             System.out.println("\n=========================================");
                             System.out.println("--- Solution #" + instanceCount + " (Sent to LLM) ---");
                             System.out.println("=========================================");
@@ -81,8 +101,8 @@ public class RunAlloy {
                     }
                     
                     System.out.println("\n[Note: " + instanceCount + " total solutions found. All archived in 'all_counterexamples.txt'.]");
-                    if (instanceCount > 5) {
-                        System.out.println("[LLM displayed the first 5 to protect context window limits.]");
+                    if (instanceCount > maxReturn) {
+                        System.out.println("[LLM displayed the first " + maxReturn + " to protect context window limits.]");
                     }
                     System.out.println("-----------------------------------------\n");
                     
@@ -93,11 +113,15 @@ public class RunAlloy {
                 System.err.println("Warning: Failed to write to 'all_counterexamples.txt': " + e.getMessage());
             }
 
+        // Your robust error catching remains intact!
         } catch (Err e) {
             System.out.println("--- Alloy Error Detected ---");
             System.out.println("Error Type: " + e.getClass().getSimpleName());
             System.out.println("Location: Line " + e.pos.y + ", Column " + e.pos.x);
             System.out.println("Message: " + e.msg);
+        } catch (Exception e) {
+            System.out.println("--- System Error Detected ---");
+            System.out.println(e.getMessage());
         }
     }
 }
